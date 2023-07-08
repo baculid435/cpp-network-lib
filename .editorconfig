@@ -1,0 +1,22 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 8
+indent_style = space
+insert_final_newline = true
+tab_width = 8
+trim_trailing_whitespace = true
+
+[GNUmakefile]
+indent_size = 8
+indent_style = tab
+
+[*.gmk]
+indent_size = 8
+indent_style = tab
+
+[*.{cpp,h}]
+indent_size = 4
+indent_style = space

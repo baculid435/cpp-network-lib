@@ -1,0 +1,13 @@
+#!/bin/sh -eu
+
+case "$(uname -s)" in
+    (Darwin|*BSD)
+	make=gmake
+	;;
+    (*)
+	make=make
+	;;
+esac
+
+target="$@"
+bear -- $make ${CXX+CXX=$CXX} ${target:-clean build}

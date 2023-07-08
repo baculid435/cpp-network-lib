@@ -1,0 +1,179 @@
+#!/bin/sh -eu
+
+# which-version: print full pathname and version of command
+# Copyright (C) 2022  "Michael G. Morey" <mgmorey@gmail.com>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+abort() {
+    printf "$@" >&2
+    exit 1
+}
+
+assert() {
+    "$@" || abort '%s: Assertion failed: %s\n' "$script" "$*"
+}
+
+configure_platform() {
+    sed=$(get_sed_command)
+
+    if ! /usr/bin/which $sed >/dev/null 2>&1; then
+	abort '%s: %s: Command not found\n' \
+	      "$script" \
+	      "$sed"
+    fi
+}
+
+get_command_rootname() {
+    basename -- "$1" .exe | $sed 's/-[0-9][0-9]*$//'
+}
+
+get_command_version() {
+    assert [ $# -eq 3 ]
+    assert [ -n "$1" ]
+    assert [ -n "$2" ]
+    assert [ -n "$3" ]
+    "$1" "$2" 2>/dev/null | $sed -n "$3"
+}
+
+get_filenames() {
+    assert [ $# -ge 1 ]
+    which "$@" 2>/dev/null
+}
+
+get_sed_command() {
+    case "$ID" in
+	(macos)
+	    printf '%s\n' gsed
+	    ;;
+	(*)
+	    printf '%s\n' sed
+	    ;;
+    esac
+}
+
+get_version_options() {
+    assert [ $# -eq 1 ]
+    assert [ -n "$1" ]
+    "$script_prefix$script.awk" \
+	command="$1" \
+	column=2 \
+	"$script_prefix$script.txt"
+}
+
+get_version_regex() {
+    assert [ $# -eq 1 ]
+    assert [ -n "$1" ]
+    "$script_prefix$script.awk" \
+	command="$1" \
+	column=3 \
+	"$script_prefix$script.txt"
+}
+
+quote_lines() {
+    awk -v quote="${1-\047}" '{print quote $0 quote}'
+}
+
+remove_duplicate_filenames() {
+    if [ "$ID" = windows ]; then
+	function=tolower
+    else
+	function=
+    fi
+
+    remove_duplicate_lines $function
+}
+
+remove_duplicate_lines() {
+    awk '!_['"${1-}"'($0)]++'
+}
+
+usage() {
+    cat <<EOF >&2
+Usage: $script COMMAND
+       $script -h
+
+Print command paths and versions.
+EOF
+}
+
+usage_error() {
+    if [ $# -gt 0 ]; then
+	printf "$@" >&2
+    fi
+
+    printf '%s\n' '' >&2
+    usage
+    exit 2
+}
+
+which_version() {
+    while getopts h opt; do
+	case $opt in
+	    (h)
+		usage
+		exit 0
+		;;
+	    (\?)
+		exit 2
+		;;
+	esac
+    done
+
+    shift $(($OPTIND - 1))
+
+    if [ $# -lt 1 ]; then
+	usage_error '%s: Not enough arguments\n' "$script"
+    elif [ $# -gt 1 ]; then
+	usage_error '%s: Too many arguments\n' "$script"
+    fi
+
+    configure_platform
+    root_command=$(get_command_rootname "$1")
+
+    if ! options=$(get_version_options $root_command) || [ -z "$options" ]; then
+	abort '%s: %s: Not supported\n' "$script" "$1"
+    fi
+
+    if ! regex=$(get_version_regex $root_command) || [ -z "$regex" ]; then
+	abort '%s: %s: Not supported\n' "$script" "$1"
+    fi
+
+    get_filenames "$1" | while read filename; do
+	for option in $(printf '%s\n' "$options" | tr ',' ' '); do
+	    version=$(get_command_version "$filename" "$option" "$regex")
+
+	    if [ -n "$version" ]; then
+		printf '%s\n' "$version"
+		break
+	    fi
+	done
+    done
+}
+
+script=$(basename "$0")
+
+case "$0" in
+    (*/*)
+	script_dir=$(cd "$(dirname "$0")" && pwd)
+	;;
+    (*)
+	script_dir=
+	;;
+esac
+
+script_prefix=${script_dir:+$script_dir/}
+
+eval $("${script_prefix}get-os-release" -x)
+which_version "$@"

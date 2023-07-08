@@ -1,0 +1,51 @@
+# Copyright (C) 2022  "Michael G. Morey" <mgmorey@gmail.com>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+# Define common functions
+
+compare-versions = $(shell $(script_dir)/compare-versions "$1" "$2")
+get-alias = $(shell echo $1 | sed 's/\(\.[0-9][0-9]*\)\(\.[0-9][0-9]*\)*$$/\1/')
+not-version = $(shell echo $1 | sed 's/\.[0-9][0-9]*\(\.[0-9][0-9]*\)*$$//')
+subst-suffix = $(shell echo $2 | sed 's/\(\.[^.]*\)*$$/$1/')
+to-macro = $(call to-upper,$(call to-under,$1))
+to-under = $(shell echo $1 | tr '-' '_')
+to-upper = $(shell echo $1 | tr '[:lower:]' '[:upper:]')
+
+# Define platform-specific variables
+
+# Operating system name and release
+os_release = $(shell $(script_dir)/get-os-release -iko)
+os_distro = $(word 1,$(os_release))
+os_name = $(word 2,$(os_release))
+os_type = $(word 3,$(os_release))
+
+# Program presence flags
+is_clang = $(shell $(script_dir)/is-clang $(CXX))
+is_ctags_universal = $(shell $(script_dir)/is-ctags-universal ctags)
+is_gcc = $(shell $(script_dir)/is-gcc $(CXX))
+is_gnu_as = $(shell $(script_dir)/is-gnu-as $(AS))
+is_gnu_ld = $(shell $(script_dir)/is-gnu-ld $(LD))
+
+# Program aliases
+clang_tidy = clang-tidy$(LLVM_SUFFIX)
+
+# Program versions
+clang_tidy_version = $(shell $(script_dir)/get-llvm-version $(clang_tidy))
+cppcheck_version = $(shell $(script_dir)/which-version cppcheck)
+ctags_version = $(shell $(script_dir)/which-version ctags)
+
+# Local Variables:
+# mode: makefile
+# End:
